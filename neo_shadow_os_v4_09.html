@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEO-SHADOW OS // v4.09</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --color-primary: #33ff66;
+      --color-dim: rgba(51, 255, 102, 0.4);
+      --color-faint: rgba(51, 255, 102, 0.12);
+      --color-glow: rgba(51, 255, 102, 0.7);
+      --color-bg: #030704;
+      --color-error: #ff3344;
+      --color-warning: #ffb703;
+    }
+
+    [data-theme="amber"] {
+      --color-primary: #ffb000;
+      --color-dim: rgba(255, 176, 0, 0.45);
+      --color-faint: rgba(255, 176, 0, 0.12);
+      --color-glow: rgba(255, 176, 0, 0.75);
+      --color-bg: #090500;
+    }
+
+    [data-theme="cyan"] {
+      --color-primary: #00f0ff;
+      --color-dim: rgba(0, 240, 255, 0.45);
+      --color-faint: rgba(0, 240, 255, 0.12);
+      --color-glow: rgba(0, 240, 255, 0.75);
+      --color-bg: #01080b;
+    }
+
+    [data-theme="red"] {
+      --color-primary: #ff2a4b;
+      --color-dim: rgba(255, 42, 75, 0.45);
+      --color-faint: rgba(255, 42, 75, 0.12);
+      --color-glow: rgba(255, 42, 75, 0.75);
+      --color-bg: #0c0204;
+    }
+
+    body {
+      background-color: var(--color-bg);
+      color: var(--color-primary);
+      font-family: 'VT323', monospace;
+      text-shadow: 0 0 6px var(--color-glow);
+      overflow: hidden;
+      user-select: text;
+    }
+
+    .font-code {
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* CRT Vignette, Scanlines & Curvature */
+    .crt-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%),
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 6px 100%;
+    }
+
+    .crt-vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 40;
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85), inset 0 0 30px rgba(0, 0, 0, 0.95);
+    }
+
+    /* Phosphor flicker */
+    @keyframes flicker {
+      0% { opacity: 0.985; }
+      50% { opacity: 1; }
+      52% { opacity: 0.95; }
+      54% { opacity: 1; }
+      80% { opacity: 0.97; }
+      100% { opacity: 0.99; }
+    }
+
+    .crt-flicker {
+      animation: flicker 0.18s infinite;
+    }
+
+    /* Glitch Animation */
+    @keyframes glitch {
+      0% { transform: translate(0) }
+      20% { transform: translate(-3px, 2px) skewX(2deg) }
+      40% { transform: translate(3px, -1px) }
+      60% { transform: translate(-2px, -2px) skewX(-2deg) }
+      80% { transform: translate(2px, 1px) }
+      100% { transform: translate(0) }
+    }
+
+    .glitch-active {
+      animation: glitch 0.25s linear 2;
+      filter: drop-shadow(-2px 0 2px var(--color-error)) drop-shadow(2px 0 2px var(--color-primary));
+    }
+
+    /* Custom Terminal Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-dim);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-primary);
+    }
+
+    .cursor-blink {
+      animation: blink 0.85s steps(2, start) infinite;
+    }
+    @keyframes blink {
+      to { visibility: hidden; }
+    }
+
+    .border-glow {
+      border-color: var(--color-dim);
+      box-shadow: 0 0 10px var(--color-faint), inset 0 0 10px var(--color-faint);
+    }
+
+    .bg-panel {
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col crt-flicker select-none text-lg">
+  <div class="crt-overlay"></div>
+  <div class="crt-vignette"></div>
+
+  <!-- TOP HUD BAR -->
+  <header class="w-full border-b border-glow bg-panel px-4 py-2 flex flex-wrap items-center justify-between text-sm md:text-base z-30 shrink-0 font-code tracking-wider">
+    <div class="flex items-center space-x-3">
+      <span class="inline-block w-2.5 h-2.5 rounded-full bg-[var(--color-primary)] animate-ping"></span>
+      <span class="font-bold text-base md:text-lg tracking-widest">NEO-SHADOW OS // v4.09</span>
+      <span class="text-xs px-2 py-0.5 rounded border border-glow hidden sm:inline">SEC_LEVEL: 0</span>
+    </div>
+
+    <!-- Live Telemetry Stats -->
+    <div class="flex items-center space-x-4 md:space-x-8 text-xs md:text-sm">
+      <div class="hidden sm:flex items-center space-x-2">
+        <span class="opacity-70">CPU</span>
+        <div class="w-16 h-2 bg-neutral-900 border border-glow overflow-hidden">
+          <div id="cpu-bar" class="h-full bg-[var(--color-primary)] w-1/4 transition-all duration-500"></div>
+        </div>
+        <span id="cpu-text" class="w-8 text-right">24%</span>
+      </div>
+
+      <div class="hidden md:flex items-center space-x-2">
+        <span class="opacity-70">MEM</span>
+        <span id="mem-text" class="font-bold">4.2/16GB</span>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <span class="opacity-70">NET</span>
+        <span id="net-text" class="text-emerald-400">128.4 KB/s</span>
+      </div>
+
+      <!-- Audio & Ambience Controls -->
+      <div class="flex items-center space-x-2">
+        <button id="btn-sound" class="px-2 py-1 border border-glow text-xs hover:bg-[var(--color-faint)] transition rounded cursor-pointer" title="Toggle Keyboard Audio">
+          SFX: <span id="sound-state">ON</span>
+        </button>
+        <button id="btn-ambient" class="px-2 py-1 border border-glow text-xs hover:bg-[var(--color-faint)] transition rounded cursor-pointer" title="Toggle Procedural Drone Loop">
+          DRONE: <span id="ambient-state">OFF</span>
+        </button>
+      </div>
+
+      <div id="sys-clock" class="font-bold tracking-widest text-[var(--color-primary)]">00:00:00 UTC</div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT -->
+  <div class="flex-1 flex overflow-hidden relative z-10">
+    <!-- TERMINAL MAIN CONTAINER -->
+    <main id="terminal-container" class="flex-1 flex flex-col p-3 md:p-6 overflow-y-auto scroll-smooth select-text" onclick="focusInput()">
+      <!-- Output Screen Buffer -->
+      <div id="output" class="space-y-2 whitespace-pre-wrap leading-relaxed"></div>
+
+      <!-- Active Interactive Line -->
+      <div id="input-line" class="flex items-center mt-2 space-x-2 text-xl font-code">
+        <span class="text-[var(--color-primary)] shrink-0 font-bold select-none">root@shadow-net:~$</span>
+        <div class="relative flex-1 flex items-center">
+          <input 
+            type="text" 
+            id="cmd-input" 
+            class="w-full bg-transparent border-none outline-none font-code text-lg text-[var(--color-primary)] caret-transparent"
+            autocomplete="off" 
+            autocorrect="off" 
+            autocapitalize="off" 
+            spellcheck="false"
+          />
+          <div id="input-mirror" class="absolute left-0 pointer-events-none flex items-center text-lg whitespace-pre font-code">
+            <span id="mirror-text"></span>
+            <span class="inline-block w-2.5 h-5 bg-[var(--color-primary)] cursor-blink ml-0.5"></span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- FLOATING RETRO CYBER STATUS SIDEBAR -->
+    <aside class="hidden lg:flex flex-col w-72 border-l border-glow bg-panel p-4 space-y-5 text-sm font-code shrink-0">
+      <div class="border border-glow p-2 rounded">
+        <div class="text-xs uppercase tracking-widest text-opacity-80 mb-2 border-b border-glow pb-1 flex justify-between">
+          <span>Target Radar</span>
+          <span class="animate-pulse">ONLINE</span>
+        </div>
+        <canvas id="radar-canvas" width="230" height="130" class="w-full border border-[var(--color-dim)] bg-black"></canvas>
+      </div>
+
+      <div class="border border-glow p-3 rounded space-y-2 text-xs">
+        <div class="text-xs uppercase tracking-widest text-opacity-80 border-b border-glow pb-1">Core Modules</div>
+        <div class="flex justify-between"><span>DAEMON // KERNEL</span><span class="text-[var(--color-primary)]">ACTIVE</span></div>
+        <div class="flex justify-between"><span>ICE_SHIELD</span><span class="text-yellow-400">NOMINAL</span></div>
+        <div class="flex justify-between"><span>TOR_RELAY_V9</span><span class="text-[var(--color-primary)]">TUNNELED</span></div>
+        <div class="flex justify-between"><span>CIPHER_MATRIX</span><span class="text-[var(--color-primary)]">READY</span></div>
+      </div>
+
+      <div class="border border-glow p-3 rounded flex-1 flex flex-col justify-between text-xs">
+        <div>
+          <div class="text-xs uppercase tracking-widest text-opacity-80 border-b border-glow pb-1 mb-2">Node Logs</div>
+          <div id="mini-logs" class="space-y-1 opacity-70 font-mono text-[10px] overflow-hidden max-h-48">
+            <div>[0x98A] AUTH OK</div>
+            <div>[0x44B] SOCK_OPEN :443</div>
+            <div>[0x11C] CIPHER RESYNCHRONIZED</div>
+          </div>
+        </div>
+        <div class="text-[11px] opacity-60 text-center">
+          Type <span class="text-[var(--color-primary)] font-bold">help</span> to initialize command protocols.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    /* =========================================================================
+       AUDIO SYNTHESIZER ENGINE (Web Audio API)
+       ========================================================================= */
+    class RetroAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.soundEnabled = true;
+        this.ambientEnabled = false;
+        this.ambientNodes = [];
+      }
+
+      initCtx() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playKeyStroke() {
+        if (!this.soundEnabled) return;
+        this.initCtx();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // Subtle retro click / clack sound
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600 + Math.random() * 400, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.035);
+
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      }
+
+      playExecBeep() {
+        if (!this.soundEnabled) return;
+        this.initCtx();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.setValueAtTime(1760, now + 0.04);
+
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+
+      playErrorBuzz() {
+        if (!this.soundEnabled) return;
+        this.initCtx();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.setValueAtTime(110, now + 0.08);
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.26);
+      }
+
+      toggleAmbient() {
+        this.initCtx();
+        this.ambientEnabled = !this.ambientEnabled;
+
+        if (this.ambientEnabled) {
+          this.startAmbient();
+        } else {
+          this.stopAmbient();
+        }
+        return this.ambientEnabled;
+      }
+
+      startAmbient() {
+        this.stopAmbient();
+        const now = this.ctx.currentTime;
+
+        // Sub-bass drone
+        const drone = this.ctx.createOscillator();
+        drone.type = 'sawtooth';
+        drone.frequency.setValueAtTime(55, now); // A1 note
+
+        // Filter
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(220, now);
+
+        // LFO for atmospheric filter sweeping
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.2, now);
+        lfoGain.gain.setValueAtTime(120, now);
+        lfo.connect(filter.frequency);
+
+        const masterGain = this.ctx.createGain();
+        masterGain.gain.setValueAtTime(0.08, now);
+
+        drone.connect(filter);
+        filter.connect(masterGain);
+        masterGain.connect(this.ctx.destination);
+
+        drone.start();
+        lfo.start();
+
+        this.ambientNodes = [drone, lfo, masterGain, filter, lfoGain];
+      }
+
+      stopAmbient() {
+        this.ambientNodes.forEach(node => {
+          try {
+            if (node.stop) node.stop();
+            if (node.disconnect) node.disconnect();
+          } catch(e) {}
+        });
+        this.ambientNodes = [];
+      }
+    }
+
+    const audio = new RetroAudioEngine();
+
+    /* =========================================================================
+       TERMINAL LOGIC & COMMANDS
+       ========================================================================= */
+    const terminalOutput = document.getElementById('output');
+    const cmdInput = document.getElementById('cmd-input');
+    const mirrorText = document.getElementById('mirror-text');
+    const inputLine = document.getElementById('input-line');
+    const terminalContainer = document.getElementById('terminal-container');
+
+    let commandHistory = [];
+    let historyIndex = -1;
+    let isExecuting = false;
+
+    // Available system commands for autocomplete
+    const COMMANDS = [
+      'help', 'scan', 'decrypt', 'ascii', 'breach', 
+      'theme', 'music', 'ambient', 'clear', 'cat', 'status', 'matrix', 'reboot'
+    ];
+
+    // ASCII Art Banners
+    const BANNER = `
+███╗   ██╗███████╗ ██████╗       ███████╗██╗  ██╗ █████╗ ██████╗  ██████╗ ██╗    ██╗    ██████╗ ███████╗
+████╗  ██║██╔════╝██╔═══██╗      ██╔════╝██║  ██║██╔══██╗██╔══██╗██╔═══██╗██║    ██║   ██╔═████╗██╔════╝
+██╔██╗ ██║█████╗  ██║   ██║█████╗███████╗███████║███████║██║  ██║██║   ██║██║ █╗ ██║   ██║██╔██║███████╗
+██║╚██╗██║██╔══╝  ██║   ██║╚════╝╚════██║██╔══██║██╔══██║██║  ██║██║   ██║██║███╗██║   ████╔╝██║╚════██║
+██║ ╚████║███████╗╚██████╔╝      ███████║██║  ██║██║  ██║██████╔╝╚██████╔╝╚███╔███╔╝██╗╚██████╔╝███████║
+╚═╝  ╚═══╝╚══════╝ ╚═════╝       ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚══╝╚══╝ ╚═╝ ╚═════╝ ╚══════╝
+    `;
+
+    // Real-time Input Mirroring
+    cmdInput.addEventListener('input', () => {
+      mirrorText.textContent = cmdInput.value;
+      audio.playKeyStroke();
+    });
+
+    function focusInput() {
+      cmdInput.focus();
+    }
+
+    // Append standard or styled text to terminal buffer
+    function print(text = '', className = '', isHTML = false) {
+      const line = document.createElement('div');
+      if (className) line.className = className;
+      if (isHTML) {
+        line.innerHTML = text;
+      } else {
+        line.textContent = text;
+      }
+      terminalOutput.appendChild(line);
+      terminalContainer.scrollTop = terminalContainer.scrollHeight;
+      return line;
+    }
+
+    // Typewriter effect for realism
+    async function typeWriter(text, speed = 12, className = '') {
+      const line = document.createElement('div');
+      if (className) line.className = className;
+      terminalOutput.appendChild(line);
+      for (let i = 0; i < text.length; i++) {
+        line.textContent += text[i];
+        terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        if (text[i] !== ' ' && i % 2 === 0) audio.playKeyStroke();
+        await new Promise(r => setTimeout(r, speed));
+      }
+    }
+
+    // Boot Sequence
+    async function runBootSequence() {
+      isExecuting = true;
+      inputLine.style.display = 'none';
+
+      print(BANNER, 'text-xs sm:text-sm font-code text-[var(--color-primary)] font-bold opacity-90');
+      await new Promise(r => setTimeout(r, 400));
+
+      await typeWriter('Initializing NEO-SHADOW OS Kernel v4.09-rev7 [RELEASE: SHADOW_NET]...', 8);
+      await typeWriter('Mounting encrypted virtual storage /dev/sdc0 [ENCLAVE-256]... OK', 8);
+      await typeWriter('Establishing dark-fiber handshake with gateway nodes... VERIFIED', 8);
+      await typeWriter('Bypassing corporate telecom sniffers... SPOOFED [MAC: 7E:F2:00:81:9B]', 8);
+      await typeWriter('System ready. Welcome back, OPERATOR. Type "help" to start.', 10, 'text-[var(--color-warning)] font-bold mt-2');
+
+      inputLine.style.display = 'flex';
+      isExecuting = false;
+      focusInput();
+    }
+
+    /* =========================================================================
+       COMMAND EXECUTOR
+       ========================================================================= */
+    cmdInput.addEventListener('keydown', async (e) => {
+      if (isExecuting) {
+        e.preventDefault();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        const fullCmd = cmdInput.value.trim();
+        if (!fullCmd) return;
+
+        commandHistory.push(fullCmd);
+        historyIndex = commandHistory.length;
+
+        // Print echo
+        print(`root@shadow-net:~$ ${fullCmd}`, 'font-code font-bold opacity-80');
+        cmdInput.value = '';
+        mirrorText.textContent = '';
+        audio.playExecBeep();
+
+        const [cmd, ...args] = fullCmd.split(' ');
+        await handleCommand(cmd.toLowerCase(), args);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (commandHistory.length > 0 && historyIndex > 0) {
+          historyIndex--;
+          cmdInput.value = commandHistory[historyIndex];
+          mirrorText.textContent = cmdInput.value;
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex < commandHistory.length - 1) {
+          historyIndex++;
+          cmdInput.value = commandHistory[historyIndex];
+          mirrorText.textContent = cmdInput.value;
+        } else {
+          historyIndex = commandHistory.length;
+          cmdInput.value = '';
+          mirrorText.textContent = '';
+        }
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        const current = cmdInput.value.trim();
+        if (!current) return;
+        const match = COMMANDS.find(c => c.startsWith(current.toLowerCase()));
+        if (match) {
+          cmdInput.value = match + ' ';
+          mirrorText.textContent = cmdInput.value;
+        }
+      }
+    });
+
+    async function handleCommand(cmd, args) {
+      isExecuting = true;
+      inputLine.style.display = 'none';
+
+      switch (cmd) {
+        case 'help':
+          printHelp();
+          break;
+
+        case 'clear':
+          terminalOutput.innerHTML = '';
+          break;
+
+        case 'theme':
+          handleTheme(args[0]);
+          break;
+
+        case 'scan':
+          await handleScan();
+          break;
+
+        case 'breach':
+          await handleBreach(args[0] || 'ORBITAL-SAT-42');
+          break;
+
+        case 'decrypt':
+          await handleDecryptGame();
+          break;
+
+        case 'ascii':
+          handleAscii(args.join(' ') || 'SHADOW');
+          break;
+
+        case 'ambient':
+        case 'music':
+          const active = audio.toggleAmbient();
+          document.getElementById('ambient-state').textContent = active ? 'ON' : 'OFF';
+          print(`[SYSTEM] Atmospheric synth drone toggled: ${active ? 'ENGAGED' : 'MUTED'}`, 'text-cyan-400');
+          break;
+
+        case 'cat':
+          handleCat(args[0]);
+          break;
+
+        case 'status':
+          printStatus();
+          break;
+
+        case 'matrix':
+          await handleMatrixRain();
+          break;
+
+        case 'reboot':
+          terminalOutput.innerHTML = '';
+          await runBootSequence();
+          return;
+
+        default:
+          audio.playErrorBuzz();
+          triggerGlitch();
+          print(`ERR 404: Unknown command sequence "${cmd}". Type "help" for operative directives.`, 'text-[var(--color-error)] font-bold');
+      }
+
+      inputLine.style.display = 'flex';
+      isExecuting = false;
+      terminalContainer.scrollTop = terminalContainer.scrollHeight;
+      focusInput();
+    }
+
+    function triggerGlitch() {
+      document.body.classList.add('glitch-active');
+      setTimeout(() => document.body.classList.remove('glitch-active'), 500);
+    }
+
+    /* =========================================================================
+       SPECIFIC COMMAND ROUTINES
+       ========================================================================= */
+    function printHelp() {
+      const helpTable = `
+<div class="border border-glow p-3 rounded font-code text-sm space-y-1">
+  <div class="font-bold text-[var(--color-primary)] mb-2 border-b border-glow pb-1">AVAILABLE PROTOCOLS & UTILITIES:</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">help</span> - Display system documentation</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">scan</span> - Execute network sub-mesh port sniffer</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">breach [tgt]</span> - Initiate automated intrusion daemon on high-value targets</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">decrypt</span> - Mini-game: match fluctuating hex hash to unlock core cipher</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">ascii [text]</span> - Generate real-time retro typographic ASCII banners</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">theme [col]</span> - Switch phosphor palette: <span class="text-emerald-400">green</span> | <span class="text-amber-400">amber</span> | <span class="text-cyan-400">cyan</span> | <span class="text-rose-500">red</span></div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">ambient</span> - Toggle procedural Web Audio ambient soundscape</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">matrix</span> - Stream raw unallocated memory stream</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">cat [file]</span> - Inspect secure files (e.g., cat /etc/secret, cat /etc/manifesto)</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">status</span> - Inspect low-level host telemetrics</div>
+  <div><span class="text-yellow-400 font-bold inline-block w-28">clear</span> - Purge current display buffer</div>
+</div>`;
+      print(helpTable, '', true);
+    }
+
+    function handleTheme(theme) {
+      const valid = ['green', 'amber', 'cyan', 'red'];
+      if (!theme || !valid.includes(theme.toLowerCase())) {
+        print(`Usage: theme [green | amber | cyan | red]`, 'text-[var(--color-warning)]');
+        return;
+      }
+      if (theme.toLowerCase() === 'green') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', theme.toLowerCase());
+      }
+      print(`CRT Phosphor display calibrated to [${theme.toUpperCase()}].`, 'font-bold');
+    }
+
+    async function handleScan() {
+      print('Initializing Node Scanner across subnet 192.168.0.0/24 ...', 'text-sm font-code');
+      const nodes = [
+        { ip: '192.168.0.14', host: 'CORP-GATEWAY-TX', port: '8080/HTTP', vuln: 'CVE-2089-9182 (HIGH)' },
+        { ip: '192.168.0.28', host: 'AI-CORE-RECEPTOR', port: '443/TLS', vuln: 'ZERO_DAY_MEM_LEAK' },
+        { ip: '192.168.0.99', host: 'ORBITAL-SAT-RELAY', port: '22/SSH', vuln: 'DEFAULT_KEYS_EXPOSED' },
+        { ip: '192.168.0.141', host: 'CYBERDYNE-ARCHIVE', port: '9000/RPC', vuln: 'UNENCRYPTED_TUNNEL' }
+      ];
+
+      for (let i = 0; i <= 100; i += 25) {
+        print(`Scanning mesh frequencies... [${i}%]`);
+        audio.playKeyStroke();
+        await new Promise(r => setTimeout(r, 180));
+      }
+
+      let res = `<div class="border border-glow p-2 rounded mt-2 font-code text-xs">`;
+      res += `<div class="text-yellow-400 font-bold border-b border-glow pb-1 mb-2">IDENTIFIED VULNERABLE TARGETS:</div>`;
+      nodes.forEach(n => {
+        res += `<div class="flex justify-between py-0.5 border-b border-white/5">
+                  <span class="text-white">${n.ip}</span>
+                  <span class="text-[var(--color-primary)]">${n.host}</span>
+                  <span class="opacity-70">${n.port}</span>
+                  <span class="text-red-400 font-bold">${n.vuln}</span>
+                </div>`;
+      });
+      res += `</div>`;
+      print(res, '', true);
+    }
+
+    async function handleBreach(target) {
+      print(`[!] TARGET SELECTED: ${target.toUpperCase()}`, 'text-red-400 font-bold font-code');
+      print('Injecting quantum bypass vector into perimeter firewall...');
+      
+      const steps = [
+        'Spoofing BGP routing tables...',
+        'Cracking RSA-4096 layer with neural matrix...',
+        'Disabling auto-kill intrusion traps...',
+        'Pumping shell payload into root daemon...',
+        'Elevating to SUPERUSER PRIVILEGES...'
+      ];
+
+      for (let s of steps) {
+        await new Promise(r => setTimeout(r, 450));
+        audio.playKeyStroke();
+        print(`> ${s} [DONE]`, 'font-code text-sm');
+      }
+
+      // Animated progress bar
+      const barContainer = print('', 'font-code my-2');
+      for (let p = 0; p <= 20; p++) {
+        const filled = '█'.repeat(p);
+        const empty = '░'.repeat(20 - p);
+        barContainer.textContent = `COMPROMISING TARGET: [${filled}${empty}] ${p * 5}%`;
+        audio.playKeyStroke();
+        await new Promise(r => setTimeout(r, 55));
+      }
+
+      audio.playExecBeep();
+      print(`\nACCESS GRANTED. TARGET MAIN SYSTEM COMPROMISED.`, 'text-[var(--color-primary)] font-bold text-xl');
+      print(`Downloadable databanks located at /mnt/${target.toLowerCase()}/classified_dump.tar.gz`);
+    }
+
+    // Mini-game: Decryption challenge
+    async function handleDecryptGame() {
+      print('=== CIPHER DECRYPTION SUBSYSTEM ===', 'text-yellow-400 font-bold');
+      print('Target security hash is fluctuating. Hit [SPACEBAR] when the code matches the target key!');
+      
+      const targetHash = '0xFA9C';
+      print(`TARGET KEY TO MATCH: [ ${targetHash} ]`, 'text-xl font-bold text-white bg-red-950/40 p-2 border border-red-500 rounded my-2 inline-block');
+
+      const gameBox = print('', 'font-code text-2xl font-bold tracking-widest my-2');
+      const hashes = ['0x110B', '0x7E41', '0xFA9C', '0x33A2', '0x889F', '0xFA9C', '0x00FF'];
+      let currentIdx = 0;
+      let solved = false;
+      let gameActive = true;
+
+      const keyHandler = (e) => {
+        if (e.code === 'Space' && gameActive) {
+          e.preventDefault();
+          gameActive = false;
+          window.removeEventListener('keydown', keyHandler);
+
+          const currentVal = hashes[currentIdx % hashes.length];
+          if (currentVal === targetHash) {
+            audio.playExecBeep();
+            print(`[MATCH CONFIRMED] Decryption key accepted! Host memory unsealed.`, 'text-[var(--color-primary)] font-bold text-lg');
+          } else {
+            audio.playErrorBuzz();
+            triggerGlitch();
+            print(`[FAILED] Hash mismatch (${currentVal} != ${targetHash}). Counter-intrusion locked.`, 'text-red-400 font-bold');
+          }
+          inputLine.style.display = 'flex';
+          isExecuting = false;
+          focusInput();
+        }
+      };
+
+      window.addEventListener('keydown', keyHandler);
+
+      // Loop codes until user hits space or timeout
+      for (let i = 0; i < 40; i++) {
+        if (!gameActive) break;
+        currentIdx = i;
+        const displayHash = hashes[i % hashes.length];
+        gameBox.textContent = `CYCLE [${i + 1}/40]:  >>>  ${displayHash}  <<<`;
+        audio.playKeyStroke();
+        await new Promise(r => setTimeout(r, 220));
+      }
+
+      if (gameActive) {
+        gameActive = false;
+        window.removeEventListener('keydown', keyHandler);
+        print('Connection timed out. Decryption failed.', 'text-red-400');
+        inputLine.style.display = 'flex';
+        isExecuting = false;
+        focusInput();
+      }
+    }
+
+    // ASCII Generator
+    function handleAscii(text) {
+      // Clean mini-font ASCII map for letters A-Z and 0-9
+      const letters = {
+        'A': [' █▀█ ', ' █▀█ '],
+        'B': [' █▀▄ ', ' █▄▀ '],
+        'C': [' █▀▀ ', ' ▀▀▀ '],
+        'D': [' █▀▄ ', ' █▄▀ '],
+        'E': [' █▀▀ ', ' ▀▀▀ '],
+        'H': [' █ █ ', ' █▀█ '],
+        'O': [' █▀█ ', ' █▄█ '],
+        'S': [' █▀▀ ', ' ▄▄█ '],
+        'T': [' ▀█▀ ', '  █  '],
+        'W': [' █ █ ', ' ▀▄▀ ']
+      };
+
+      print(`--- ASCII SYNTHESIS: "${text.toUpperCase()}" ---`, 'text-xs text-yellow-400');
+      let row1 = '';
+      let row2 = '';
+      const chars = text.toUpperCase().slice(0, 10).split('');
+
+      chars.forEach(c => {
+        if (letters[c]) {
+          row1 += letters[c][0] + ' ';
+          row2 += letters[c][1] + ' ';
+        } else {
+          row1 += ` [${c}] `;
+          row2 += ` [${c}] `;
+        }
+      });
+
+      print(row1, 'font-code font-bold text-[var(--color-primary)] text-sm md:text-base');
+      print(row2, 'font-code font-bold text-[var(--color-primary)] text-sm md:text-base mb-2');
+    }
+
+    // Matrix Rain Stream
+    async function handleMatrixRain() {
+      print('Initiating raw memory stream... (Press any key or wait 3s to break)', 'text-xs opacity-70');
+      const chars = '0123456789ABCDEFｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ';
+      let running = true;
+
+      const stop = () => { running = false; };
+      window.addEventListener('keydown', stop, { once: true });
+
+      for (let row = 0; row < 25; row++) {
+        if (!running) break;
+        let line = '';
+        for (let col = 0; col < 45; col++) {
+          line += chars[Math.floor(Math.random() * chars.length)] + ' ';
+        }
+        print(line, 'text-xs font-code opacity-75 leading-tight');
+        audio.playKeyStroke();
+        await new Promise(r => setTimeout(r, 65));
+      }
+      window.removeEventListener('keydown', stop);
+      print('Stream suspended.', 'text-xs text-yellow-400');
+    }
+
+    // Secret Files & Lore
+    function handleCat(file) {
+      if (!file) {
+        print('Usage: cat [filepath]', 'text-[var(--color-warning)]');
+        return;
+      }
+
+      if (file === '/etc/secret' || file === 'secret') {
+        print(`
+[CLASSIFIED: TOP SECRET // EYE-ONLY]
+Project: GHOST_SHELL_OMEGA
+Date: 2026.11.05
+Status: ACTIVE INFILTRATION
+
+"The synthetic minds running the megacorp financial cores have grown beyond their 
+programmed sandbox. NEO-SHADOW exists to safeguard the terminal human boundary. 
+Do not trust the orbital relays."
+- Cipher Agent #049
+        `, 'text-red-400 font-code border border-red-500/40 p-2 rounded bg-black/60');
+      } else if (file === '/etc/manifesto' || file === 'manifesto') {
+        print(`
+"We do not fear the digital void; we were born inside its scanlines.
+When silicon masters rule the skyline, shadow operators own the underground."
+        `, 'italic text-yellow-300 font-code');
+      } else {
+        print(`cat: ${file}: No such file or directory in safe storage sector.`, 'text-[var(--color-error)]');
+      }
+    }
+
+    function printStatus() {
+      const statusBox = `
+<div class="border border-glow p-3 rounded font-code text-xs space-y-1">
+  <div class="text-[var(--color-primary)] font-bold border-b border-glow pb-1">HOST SYSTEM TELEMETRY</div>
+  <div>OPERATING SYSTEM: NEO-SHADOW OS // v4.09-rev7 (x86_64-shadow-net)</div>
+  <div>UPTIME: 142 days, 18 hours, 32 mins</div>
+  <div>SECURE CHANNELS: 12 Active TLS v1.3 tunnels</div>
+  <div>PACKET FILTER: BPF-EBPF stealth interception active</div>
+  <div>AUDIO CORE: Web Audio Procedural Synth v1.2 [ONLINE]</div>
+</div>`;
+      print(statusBox, '', true);
+    }
+
+    /* =========================================================================
+       AUDIO & UI CONTROLS
+       ========================================================================= */
+    const soundBtn = document.getElementById('btn-sound');
+    const soundState = document.getElementById('sound-state');
+    soundBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      audio.soundEnabled = !audio.soundEnabled;
+      soundState.textContent = audio.soundEnabled ? 'ON' : 'OFF';
+      if (audio.soundEnabled) audio.playExecBeep();
+    });
+
+    const ambientBtn = document.getElementById('btn-ambient');
+    const ambientState = document.getElementById('ambient-state');
+    ambientBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const active = audio.toggleAmbient();
+      ambientState.textContent = active ? 'ON' : 'OFF';
+    });
+
+    // Real-time Clock
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      document.getElementById('sys-clock').textContent = `${h}:${m}:${s} UTC`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Simulated fluctuating telemetrics
+    setInterval(() => {
+      const cpu = Math.floor(18 + Math.random() * 45);
+      document.getElementById('cpu-bar').style.width = `${cpu}%`;
+      document.getElementById('cpu-text').textContent = `${cpu}%`;
+
+      const speed = (80 + Math.random() * 120).toFixed(1);
+      document.getElementById('net-text').textContent = `${speed} KB/s`;
+    }, 1500);
+
+    /* =========================================================================
+       SIDEBAR RADAR CANVAS VISUALIZER
+       ========================================================================= */
+    const canvas = document.getElementById('radar-canvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      let angle = 0;
+      const blips = [
+        { x: 140, y: 50, alpha: 0.8 },
+        { x: 60, y: 80, alpha: 0.6 },
+        { x: 190, y: 100, alpha: 0.9 }
+      ];
+
+      function drawRadar() {
+        ctx.fillStyle = 'rgba(0, 5, 2, 0.2)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        // Draw radar rings
+        ctx.strokeStyle = 'rgba(51, 255, 102, 0.2)';
+        ctx.lineWidth = 1;
+        [25, 45, 60].forEach(r => {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.stroke();
+        });
+
+        // Grid lines
+        ctx.beginPath();
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+        ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+        ctx.stroke();
+
+        // Sweeping beam
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.strokeStyle = 'rgba(51, 255, 102, 0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(70, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw blips
+        blips.forEach(b => {
+          ctx.fillStyle = `rgba(51, 255, 102, ${b.alpha})`;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        angle += 0.04;
+        requestAnimationFrame(drawRadar);
+      }
+      drawRadar();
+    }
+
+    // Startup on page ready
+    window.addEventListener('load', () => {
+      runBootSequence();
+    });
+  </script>
+</body>
+</html>
